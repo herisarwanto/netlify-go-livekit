@@ -2,12 +2,11 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"os"
 	"time"
 
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/livekit/protocol/auth"
 )
 
 type Request struct {
@@ -33,34 +32,23 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	apiKey := os.Getenv("LIVEKIT_API_KEY")
-	apiSecret := os.Getenv("LIVEKIT_API_SECRET")
-	if apiKey == "" || apiSecret == "" {
-		http.Error(w, "LiveKit API key/secret not set", http.StatusInternalServerError)
-		return
+	at := auth.NewAccessToken(os.Getenv("LIVEKIT_API_KEY"), os.Getenv("LIVEKIT_API_SECRET"))
+	grant := &auth.VideoGrant{
+		RoomJoin: true,
+		Room:     req.Room,
 	}
+	at.AddGrant(grant).
+		SetIdentity(req.Identity).
+		SetValidFor(time.Hour)
 
-	claims := jwt.MapClaims{
-		"iss": apiKey,
-		"sub": req.Identity,
-		"nbf": time.Now().Unix(),
-		"exp": time.Now().Add(time.Hour).Unix(),
-		"grants": map[string]interface{}{
-			"roomJoin":    true,
-			"room":        req.Room,
-			"canPublish":  true,
-			"canSubscribe": true,
-		},
-	}
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(apiSecret))
+	token, err := at.ToJWT()
 	resp := Response{}
 	if err != nil {
 		resp.Success = false
 		resp.Error = "Failed to generate token"
 	} else {
 		resp.Success = true
-		resp.Token = signed
+		resp.Token = token
 	}
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
@@ -72,6 +60,5 @@ func main() {
 	if port == "" {
 		port = "8080"
 	}
-	fmt.Println("Listening on port", port)
 	http.ListenAndServe(":"+port, nil)
 } 
