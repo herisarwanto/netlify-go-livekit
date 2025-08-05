@@ -1,0 +1,7 @@
+[build]
+  functions = "functions"
+
+[[redirects]]
+  from = "/.netlify/functions/livekit-token"
+  to = "/.netlify/functions/livekit-token"
+  status = 200 
