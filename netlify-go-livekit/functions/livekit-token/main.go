@@ -10,8 +10,8 @@ import (
 )
 
 type Request struct {
-	Identity string `json:"identity"`
-	Room     string `json:"room"`
+	UserId string `json:"userId"` 
+	Room   string `json:"room"`
 }
 
 type Response struct {
@@ -32,13 +32,19 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validasi userId tidak boleh kosong
+	if req.UserId == "" {
+		http.Error(w, "userId is required", http.StatusBadRequest)
+		return
+	}
+
 	at := auth.NewAccessToken(os.Getenv("LIVEKIT_API_KEY"), os.Getenv("LIVEKIT_API_SECRET"))
 	grant := &auth.VideoGrant{
 		RoomJoin: true,
 		Room:     req.Room,
 	}
 	at.AddGrant(grant).
-		SetIdentity(req.Identity).
+		SetIdentity(req.UserId). // Pakai userId sebagai identity
 		SetValidFor(time.Hour)
 
 	token, err := at.ToJWT()
